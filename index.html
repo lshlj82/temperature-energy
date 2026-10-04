@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Temperature and Energy, Interactively</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#EDF1F4; --surface:#F8FAFC; --ink:#15202B; --muted:#56636F; --rule:#C5CFD7; --band:#E2E8ED;
+  --hot:#C4402B; --cold:#2B67D1; --gas:#2E7A57; --acc:#7B3FB0; --amber:#C8781A; --res:#8B98A4;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E151C; --surface:#141D26; --ink:#E3E9EE; --muted:#97A4B0; --rule:#2B3743; --band:#1B2631;
+    --hot:#FF7A66; --cold:#6E9FF2; --gas:#5CC593; --acc:#B98CF0; --amber:#F0B45C; --res:#5B6976;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E151C; --surface:#141D26; --ink:#E3E9EE; --muted:#97A4B0; --rule:#2B3743; --band:#1B2631;
+  --hot:#FF7A66; --cold:#6E9FF2; --gas:#5CC593; --acc:#B98CF0; --amber:#F0B45C; --res:#5B6976;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--serif);font-size:1.1rem;line-height:1.62;-webkit-font-smoothing:antialiased}
+img,canvas{max-width:100%}
+a{color:var(--cold)}
+:focus-visible{outline:2px solid var(--cold);outline-offset:3px;border-radius:2px}
+.wrap{max-width:1080px;margin:0 auto;padding:0 clamp(1rem,4vw,2.5rem)}
+.prose{max-width:40rem}
+
+header.hero{padding:clamp(2.5rem,7vw,5rem) 0 1.5rem}
+.credit{font-family:var(--sans);font-size:.9rem;color:var(--muted);margin:0 0 1.25rem}
+h1{font-weight:500;font-size:clamp(2.5rem,7.5vw,5.25rem);line-height:.98;letter-spacing:-.025em;margin:0 0 1.25rem;max-width:12ch}
+.lede{font-size:clamp(1.15rem,2.2vw,1.35rem);max-width:37rem;margin:0}
+
+section{padding:clamp(2.5rem,6vw,4rem) 0;border-top:1px solid var(--rule)}
+section:first-of-type{border-top:0;padding-top:1rem}
+h2{font-weight:500;font-size:clamp(1.7rem,3.5vw,2.35rem);line-height:1.1;letter-spacing:-.015em;margin:0 0 1rem}
+h3{font-family:var(--sans);font-weight:600;font-size:1rem;margin:1.75rem 0 .5rem}
+p{margin:0 0 1rem}
+.note{font-size:.95rem;color:var(--muted)}
+
+.eq{display:block;text-align:center;margin:1.25rem 0;overflow-x:auto;overflow-y:hidden;padding:.25rem 0}
+.eq.multi{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;column-gap:2.2em;row-gap:.65rem}
+.boxed.multi{display:inline-flex;flex-wrap:wrap;justify-content:center;align-items:center;column-gap:2em;row-gap:.6rem;max-width:100%}
+.eqp{max-width:100%}
+.multi.chain{column-gap:.35em}
+mjx-container{color:inherit}
+mjx-container[display="true"]{margin:0 !important}
+.stats mjx-container,.legend mjx-container,.cap mjx-container,.ctl small mjx-container{font-size:105%}
+.ctl output mjx-container{font-size:95%}
+.boxed{display:inline-block;border:1.5px solid var(--cold);padding:.5rem 1rem;border-radius:3px}
+
+.fig{display:grid;grid-template-columns:minmax(0,1fr) 17.5rem;gap:1.5rem;align-items:start;margin-top:1.5rem}
+@media (max-width:820px){.fig{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:1rem}
+.canvas-holder{background:var(--surface);border:1px solid var(--rule);border-radius:6px;overflow:hidden}
+canvas{display:block;width:100%}
+
+.ctl{font-family:var(--sans);font-size:.9rem;margin-bottom:1.1rem}
+.ctl:last-child{margin-bottom:0}
+.ctl label{display:flex;justify-content:space-between;align-items:baseline;gap:.75rem;font-weight:500;margin-bottom:.3rem}
+.ctl .lt{flex:1 1 auto}
+.ctl output{flex:0 0 auto;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--muted);font-weight:400}
+.ctl small{display:block;color:var(--muted);line-height:1.4;margin-top:.25rem}
+input[type=range]{width:100%;accent-color:var(--cold);margin:0}
+input[type=number]{font-family:var(--sans);font-size:1rem;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:.4rem .5rem;width:100%;font-variant-numeric:tabular-nums}
+select{font-family:var(--sans);font-size:.9rem;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:.4rem .5rem;width:100%}
+.btns{display:flex;flex-wrap:wrap;gap:.5rem}
+button{font-family:var(--sans);font-size:.88rem;font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--rule);border-radius:4px;padding:.45rem .8rem;cursor:pointer}
+button:hover{border-color:var(--ink)}
+button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.stats{font-family:var(--sans);font-size:.9rem;display:grid;grid-template-columns:auto auto;gap:.35rem 1rem;margin:0}
+.stats dt{color:var(--muted)}
+.stats dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:500;white-space:nowrap}
+.stats .sep{grid-column:1/-1;border-top:1px solid var(--rule);margin:.3rem 0}
+.legend{font-family:var(--sans);font-size:.85rem;color:var(--muted);display:flex;flex-wrap:wrap;gap:1rem;margin:.6rem 0 0;align-items:center}
+.swatch{display:inline-block;width:.75rem;height:.75rem;border-radius:2px;vertical-align:-1px;margin-right:.35rem}
+.swatch.line{height:3px;width:1.1rem;vertical-align:3px;border-radius:0}
+.swatch.dash{height:0;width:1.1rem;vertical-align:3px;border-radius:0;border-top:3px dashed}
+.swatch.dot{border-radius:50%}
+.cap{font-family:var(--sans);font-size:.85rem;color:var(--muted);margin:.5rem .25rem 0}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin-top:1.25rem}
+@media (max-width:700px){.two{grid-template-columns:1fr}}
+.conv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin-top:1rem;font-family:var(--sans);font-size:.9rem}
+@media (max-width:560px){.conv{grid-template-columns:1fr}}
+.conv label{display:block;font-weight:500;margin-bottom:.3rem}
+table.eqt{border-collapse:collapse;font-family:var(--sans);font-size:.9rem;margin:1rem 0}
+table.eqt th,table.eqt td{padding:.4rem .9rem;border-bottom:1px solid var(--rule);text-align:left}
+table.eqt th{font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:2rem 0 3rem;font-family:var(--sans);font-size:.9rem;color:var(--muted)}
+footer p{margin:0 0 .4rem}
+</style>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] },
+  svg: { fontCache: 'global' },
+  options: { enableMenu: false }
+};
+</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-svg.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="credit">An interactive demo created by Claude Opus 5.5, based on the lecture notes by Sang Hoon Lee (Statistical Physics 1, Chapter 1, Energy in Thermal Physics, Sections 1.1 to 1.3)</p>
+  <h1>Temperature and Energy</h1>
+  <p class="lede">Statistical physics studies the collective, emergent behavior of systems made of many particles. It starts with thermal physics, and thermal physics starts with two questions: what is temperature, and how is it related to energy?</p>
+</header>
+
+<!-- ============ EQUILIBRIUM ============ -->
+<section id="equilibrium" aria-labelledby="h-eq">
+  <h2 id="h-eq">Thermal equilibrium</h2>
+  <div class="prose">
+    <p>Temperature has three definitions, each more fundamental than the last. Operationally, it is what you measure with a thermometer: put the thermometer in contact with the object and wait long enough. Alternatively, it is the thing that’s the same for two objects after they’ve been in contact long enough. Theoretically, it is a measure of an object’s tendency to spontaneously give up energy to its surroundings, made precise in Chapter 3.</p>
+    <p>Objects in thermal contact exchange energy spontaneously, in the form we call <strong>heat</strong>. Energy tends to flow from the hotter object to the colder one: statistically, but almost surely. After long enough, the exchange stops on average and the two are in <strong>thermal equilibrium</strong>; the time this takes is the <strong>relaxation time</strong>. Below, two blocks are made of cells that trade energy with their neighbors at random: each exchange simply splits the pair’s total energy at a random point. Nothing in the rule says “hot to cold,” yet that is what happens.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="heatCanvas" class="pix" aria-label="Two blocks of cells exchanging energy, colored by energy"></canvas></div>
+      <div class="legend"><span>Color shows each cell’s energy, from cold (blue) to hot (red).</span></div>
+      <div class="canvas-holder" style="margin-top:.75rem"><canvas id="tCanvas" aria-label="Temperatures of the two blocks versus time"></canvas></div>
+      <div class="legend">
+        <span><span class="swatch line" style="background:var(--hot)"></span>Block A</span>
+        <span><span class="swatch line" style="background:var(--cold)"></span>Block B</span>
+        <span><span class="swatch dash" style="border-color:var(--ink)"></span>Newton’s law of cooling, fitted</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="hA"><span class="lt">Starting temperature of A</span> <output id="hAOut"></output></label>
+        <input type="range" id="hA" min="0.2" max="4" step="0.05" value="3">
+      </div>
+      <div class="ctl">
+        <label for="hB"><span class="lt">Starting temperature of B</span> <output id="hBOut"></output></label>
+        <input type="range" id="hB" min="0.2" max="4" step="0.05" value="0.5">
+      </div>
+      <div class="ctl">
+        <label for="hSize"><span class="lt">Size of A</span> <output id="hSizeOut"></output></label>
+        <input type="range" id="hSize" min="4" max="36" step="1" value="20">
+        <small>Make A small to model a small object in a big environment.</small>
+      </div>
+      <div class="ctl">
+        <label for="hK"><span class="lt">Quality of the thermal contact</span> <output id="hKOut"></output></label>
+        <input type="range" id="hK" min="0.01" max="1" step="0.01" value="0.08">
+        <small>The chance that an exchange across the boundary goes ahead.</small>
+      </div>
+      <div class="ctl">
+        <label for="hSpd"><span class="lt">Simulation speed</span> <output id="hSpdOut"></output></label>
+        <input type="range" id="hSpd" min="0" max="4" step="1" value="1">
+      </div>
+      <div class="ctl btns">
+        <button type="button" id="hPlay">Pause</button>
+        <button type="button" id="hReset">Restart</button>
+      </div>
+      <dl class="stats">
+        <dt>\(T_A\) now</dt><dd id="hTA">–</dd>
+        <dt>\(T_B\) now</dt><dd id="hTB">–</dd>
+        <dt>Final \(T\), predicted</dt><dd id="hTf">–</dd>
+        <dt>Relaxation time \(\tau\), fitted</dt><dd id="hTau">–</dd>
+      </dl>
+    </div>
+  </div>
+  <div class="prose" style="margin-top:1.5rem">
+    <p>Each block’s temperature here is its average energy per cell (in units where that average is \(k_{\mathrm{B}}T\)). With a poor contact, each block stays nearly uniform inside and the difference decays exponentially, which is <strong>Newton’s law of cooling</strong>:</p>
+    <div class="eq multi"><span class="eqp">\( \displaystyle \frac{dT}{dt} = r\left(T_{\text{env}} - T(t)\right) \)</span><span class="eqp">\( \displaystyle \Longrightarrow\; T(t) = T_{\text{env}} + \left(T(0) - T_{\text{env}}\right)e^{-t/\tau}, \)</span><span class="eqp">\( \displaystyle \tau = 1/r \)</span></div>
+    <p>With a good contact, the blocks are no longer uniform: heat must diffuse in from the boundary, and the simple exponential is only approximate. Thermal equilibrium is one of three kinds:</p>
+    <table class="eqt">
+      <thead><tr><th>Exchanged quantity</th><th>Type of equilibrium</th></tr></thead>
+      <tbody><tr><td>Energy</td><td>Thermal</td></tr><tr><td>Volume</td><td>Mechanical (important in heat engines)</td></tr><tr><td>Particles</td><td>Diffusive (the chemical potential, later)</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ THERMOMETERS ============ -->
+<section id="thermometer" aria-labelledby="h-th">
+  <h2 id="h-th">Measuring temperature</h2>
+  <div class="prose">
+    <p>Most thermometers rely on thermal expansion. For a gas at constant pressure, the volume is proportional to temperature; at constant volume, the pressure is. Measure the pressure of a fixed volume of gas at several temperatures and the points fall on a straight line, and lines for different volumes all extrapolate to zero pressure at the same temperature, about \(-273.15\,^\circ\mathrm{C}\). That point is <strong>absolute zero</strong>, 0 K on the <strong>kelvin</strong> scale, the SI unit used in almost all thermodynamic equations. (Real gases liquefy before getting there.)</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="gasThCanvas" aria-label="Pressure versus temperature for three gas samples, extrapolated to absolute zero"></canvas></div>
+      <p class="cap">Constant-volume gas thermometer: three samples of the same gas at different fixed volumes.</p>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="gtT"><span class="lt">Temperature</span> <output id="gtTOut"></output></label>
+        <input type="range" id="gtT" min="-270" max="100" step="1" value="20">
+      </div>
+      <div class="ctl"><label class="lt" style="display:block">Extrapolation</label>
+        <div class="btns"><button type="button" id="gtExt" aria-pressed="true">Show</button></div>
+      </div>
+      <dl class="stats" id="gtStats"></dl>
+    </div>
+  </div>
+
+  <h3>Temperature scales</h3>
+  <div class="prose">
+    <p>Celsius and kelvin share the same size of degree and differ only in their baseline. Fahrenheit (used mainly in the United States) puts ice at 32 °F and boiling water at 212 °F. Assuming a linear relation \(y = ax + b\) gives (Problem 1.1)</p>
+    <div class="eq multi"><span class="eqp">\( \displaystyle {}^\circ\mathrm{F} = \tfrac95\,{}^\circ\mathrm{C} + 32, \)</span><span class="eqp">\( \displaystyle \mathrm{K} = {}^\circ\mathrm{C} + 273.15, \)</span><span class="eqp">\( \displaystyle 0\ \mathrm{K} = -459.67\,^\circ\mathrm{F} \)</span></div>
+    <p>Type in any box:</p>
+  </div>
+  <div class="conv">
+    <div><label for="cvC">Celsius (°C)</label><input type="number" id="cvC" step="any" value="36.5"></div>
+    <div><label for="cvK">Kelvin (K)</label><input type="number" id="cvK" step="any"></div>
+    <div><label for="cvF">Fahrenheit (°F)</label><input type="number" id="cvF" step="any"></div>
+  </div>
+  <p class="cap" id="cvNote" style="margin-left:0"></p>
+
+  <h3>Thermal expansion</h3>
+  <div class="prose">
+    <p>Problems 1.7 and 1.8. The thermal expansion coefficient is the fractional change in volume per degree, \(\beta \equiv (\Delta V/V)/\Delta T\), and for a solid the linear coefficient is \(\alpha \equiv (\Delta L/L)/\Delta T\). Each side of a block grows as \(L' = L(1 + \alpha\Delta T)\), so</p>
+    <div class="eq multi chain"><span class="eqp">\( \displaystyle V' = V(1+\alpha_x\Delta T)(1+\alpha_y\Delta T)(1+\alpha_z\Delta T) \)</span><span class="eqp">\( \displaystyle = V\left[1 + (\alpha_x+\alpha_y+\alpha_z)\Delta T + O(\Delta T^2)\right] \)</span></div>
+    <p>and \(\beta = \alpha_x + \alpha_y + \alpha_z\), or \(\beta = 3\alpha\) for an isotropic solid, as long as \(\Delta T\) is small.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="expCanvas" aria-label="A steel bridge expanding with temperature"></canvas></div>
+      <p class="cap">The expansion is exaggerated in the drawing; the numbers are real.</p>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="exDT"><span class="lt">Temperature change \(\Delta T\)</span> <output id="exDTOut"></output></label>
+        <input type="range" id="exDT" min="0" max="80" step="1" value="50">
+        <small>About 50 K separates a cold winter night from a hot summer day.</small>
+      </div>
+      <dl class="stats">
+        <dt>1 km steel bridge, \(\Delta L\)</dt><dd id="exL">–</dd>
+        <dt>Steel block, \(\Delta V/V\), exact</dt><dd id="exV">–</dd>
+        <dt>Using \(\beta = 3\alpha\)</dt><dd id="exV3">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">Steel: \(\alpha = 1.1 \times 10^{-5}\ \mathrm{K}^{-1}\). Mercury, for comparison, has \(\beta = 1.81 \times 10^{-4}\ \mathrm{K}^{-1}\), and water’s \(\beta\) even turns negative below 4 °C.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IDEAL GAS ============ -->
+<section id="idealgas" aria-labelledby="h-ig">
+  <h2 id="h-ig">The ideal gas</h2>
+  <div class="prose">
+    <p>Many properties of a low-density gas are summarized in the <strong>ideal gas law</strong>:</p>
+    <div class="eq"><span class="boxed multi"><span class="eqp">\( \displaystyle PV = nRT \)</span><span class="eqp">\( \displaystyle PV = Nk_{\mathrm{B}}T \)</span></span></div>
+    <p>Here \(P\) is pressure and \(T\) temperature (both intensive), \(V\) volume (extensive), \(n\) the number of moles, \(R = 8.31\ \mathrm{J/(mol\,K)}\) a universal constant, \(N = nN_A\) the number of molecules with Avogadro’s number \(N_A = 6.02 \times 10^{23}\), and \(k_{\mathrm{B}} = R/N_A = 1.381 \times 10^{-23}\ \mathrm{J/K}\) is Boltzmann’s constant. This explains \(P \propto T\) at constant volume, approximately.</p>
+  </div>
+
+  <h3>The exponential atmosphere</h3>
+  <div class="prose">
+    <p>Problem 1.16. A slab of air of thickness \(dz\) and area \(A\) at rest must satisfy \([P(z+dz) - P(z)]A = -Nmg\). With \(V = Nk_{\mathrm{B}}T/P\), this becomes the barometric equation, and if \(T\) doesn’t change with height (a fair approximation),</p>
+    <div class="eq multi"><span class="eqp">\( \displaystyle \frac{dP}{dz} = -\frac{mg}{k_{\mathrm{B}}T}\,P \)</span><span class="eqp">\( \displaystyle \Longrightarrow\; P(z) = P(0)\,e^{-mgz/k_{\mathrm{B}}T} \)</span></div>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="atmCanvas" aria-label="Atmospheric pressure versus altitude"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="atT"><span class="lt">Air temperature</span> <output id="atTOut"></output></label>
+        <input type="range" id="atT" min="220" max="320" step="1" value="280">
+      </div>
+      <dl class="stats" id="atStats"></dl>
+      <p class="cap" style="margin:.75rem 0 0">Average air molecule: 29 u. Sea level: 1 atm. Real air cools with height, so the true values are somewhat lower.</p>
+    </div>
+  </div>
+
+  <h3>Real gases</h3>
+  <div class="prose">
+    <p>Problem 1.17. Real gases deviate from the ideal gas law, systematically described by the <strong>virial expansion</strong>, and approximately by the <strong>van der Waals equation</strong>, another equation of state:</p>
+    <div class="eq multi"><span class="eqp">\( \displaystyle PV = nRT\left(1 + \frac{B(T)}{V/n} + \frac{C(T)}{(V/n)^2} + \cdots\right), \)</span><span class="eqp">\( \displaystyle \left(P + \frac{an^2}{V^2}\right)(V - nb) = nRT \)</span></div>
+    <p>Expanding the van der Waals equation for small \(nb/V\) gives \(B(T) = b - a/RT\) and \(C(T) = b^2\). At low temperature attraction lowers the pressure (\(B < 0\)); at high temperature repulsion raises it (\(B > 0\)). Fit \(a\) and \(b\) to the measured \(B(T)\) for nitrogen by hand, or jump to the best fit.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="virCanvas" aria-label="Second virial coefficient of nitrogen with a van der Waals fit"></canvas></div>
+      <div class="legend">
+        <span><span class="swatch dot" style="background:var(--hot)"></span>Measured, nitrogen</span>
+        <span><span class="swatch line" style="background:var(--acc)"></span>\(B(T) = b - a/RT\)</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="vA"><span class="lt">\(a\)</span> <output id="vAOut"></output></label>
+        <input type="range" id="vA" min="0" max="0.4" step="0.001" value="0.1">
+      </div>
+      <div class="ctl">
+        <label for="vB"><span class="lt">\(b\)</span> <output id="vBOut"></output></label>
+        <input type="range" id="vB" min="0" max="120" step="0.1" value="30">
+      </div>
+      <div class="ctl btns"><button type="button" id="vFit">Best fit</button></div>
+      <dl class="stats">
+        <dt>RMS misfit</dt><dd id="vRms">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">At 1 atm the correction \(B/(V/n)\) is only about −2% at 100 K and well under 0.1% from 300 K up, so the ideal gas law is excellent for nitrogen at room temperature.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MICROSCOPIC ============ -->
+<section id="micro" aria-labelledby="h-micro">
+  <h2 id="h-micro">Temperature is kinetic energy</h2>
+  <div class="prose">
+    <p>Now model the gas microscopically. One molecule bounces back and forth in a cylinder of length \(L\) with a piston of area \(A\). Each elastic collision with the piston changes its velocity by \(\Delta v_x = -2v_x\), and a round trip takes \(\Delta t = 2L/v_x\), so the average pressure on the piston is</p>
+    <div class="eq multi chain"><span class="eqp">\( \displaystyle \bar{P} = -\frac{m}{A}\,\frac{\Delta v_x}{\Delta t} = \frac{m v_x^2}{AL} \)</span><span class="eqp">\( \displaystyle = \frac{m v_x^2}{V} \)</span></div>
+    <p>Faster molecules collide both harder and more often, hence \(v_x^2\). For \(N\) identical, noninteracting molecules moving independently in random directions, \(\bar{P}V = Nm\overline{v_x^2}\). Comparing with \(PV = Nk_{\mathrm{B}}T\) gives \(\tfrac12 m\overline{v_x^2} = \tfrac12 k_{\mathrm{B}}T\), and the same holds for \(y\) and \(z\):</p>
+    <div class="eq"><span class="boxed multi"><span class="eqp">\( \displaystyle \bar{K}_{\text{trans}} = \tfrac12 m\overline{v^2} = \tfrac32 k_{\mathrm{B}}T, \)</span><span class="eqp">\( \displaystyle v_{\text{rms}} = \sqrt{\overline{v^2}} = \sqrt{\frac{3k_{\mathrm{B}}T}{m}} \)</span></span></div>
+    <p>The average kinetic energy is proportional to temperature, with \(k_{\mathrm{B}}\) as the conversion factor; at room temperature \(k_{\mathrm{B}}T \approx 1/40\ \mathrm{eV}\). Below, molecules fly around a box with no interactions; the program adds up the momentum they deliver to the right-hand wall and compares the result with \(Nk_{\mathrm{B}}T/V\).</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="gasCanvas" aria-label="Molecules bouncing in a box; the right wall is the piston"></canvas></div>
+      <p class="cap">A three-dimensional box seen from the front. Molecules flash when they hit the piston on the right.</p>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="gN"><span class="lt">Molecules \(N\)</span> <output id="gNOut"></output></label>
+        <input type="range" id="gN" min="10" max="600" step="10" value="200">
+      </div>
+      <div class="ctl">
+        <label for="gT"><span class="lt">Temperature</span> <output id="gTOut"></output></label>
+        <input type="range" id="gT" min="0.2" max="3" step="0.05" value="1">
+      </div>
+      <div class="ctl">
+        <label for="gL"><span class="lt">Box length \(L\)</span> <output id="gLOut"></output></label>
+        <input type="range" id="gL" min="0.5" max="1" step="0.01" value="1">
+        <small>The cross-section is 1 × 1, so \(V = L\).</small>
+      </div>
+      <div class="ctl btns"><button type="button" id="gPlay">Pause</button><button type="button" id="gReset">Reset counts</button></div>
+      <dl class="stats">
+        <dt>Measured \(P\)</dt><dd id="gP">–</dd>
+        <dt>\(Nk_{\mathrm{B}}T/V\)</dt><dd id="gPi">–</dd>
+        <dt>Ratio</dt><dd id="gR">–</dd>
+        <dt class="sep"></dt>
+        <dt>Average \(K\), \(\tfrac32 k_{\mathrm{B}}T\) units</dt><dd id="gK">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">Units with \(m = k_{\mathrm{B}} = 1\). Velocities are drawn from the thermal distribution, then scaled so the sample’s average \(v_x^2\) is exactly \(k_{\mathrm{B}}T/m\): with no collisions between molecules, nothing else would even it out. The ratio settles toward 1 as the counts build up.</p>
+    </div>
+  </div>
+
+  <h3>How fast are air molecules?</h3>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="vrCanvas" aria-label="Root-mean-square speed of several gases at the chosen temperature"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="vrT"><span class="lt">Temperature</span> <output id="vrTOut"></output></label>
+        <input type="range" id="vrT" min="50" max="1500" step="5" value="300">
+      </div>
+      <dl class="stats">
+        <dt>\(k_{\mathrm{B}}T\)</dt><dd id="vrkT">–</dd>
+        <dt>\(\bar{K}_{\text{trans}}\)</dt><dd id="vrK">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">Hundreds of meters per second at room temperature. \(v_{\text{rms}}\) is not exactly the average speed, but a fine estimate of it; the full distribution of speeds comes in Chapter 6.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ EQUIPARTITION ============ -->
+<section id="equip" aria-labelledby="h-equip">
+  <h2 id="h-equip">Equipartition of energy</h2>
+  <div class="prose">
+    <p>The translational kinetic energy splits equally among the three directions, \(\tfrac12 m\overline{v_x^2} = \tfrac12 m\overline{v_y^2} = \tfrac12 m\overline{v_z^2} = \tfrac12 k_{\mathrm{B}}T\). Any energy that is a quadratic function of a coordinate or velocity component (translational \(\tfrac12 mv_x^2\), rotational \(\tfrac12 I\omega_x^2\), elastic \(\tfrac12 k_s x^2\), and so on) is called a <strong>degree of freedom</strong>, and the</p>
+    <p><strong>equipartition theorem</strong> says: at temperature \(T\), the average energy of any quadratic degree of freedom is \(\tfrac12 k_{\mathrm{B}}T\). For \(N\) molecules with \(f\) degrees of freedom each, and no other temperature-dependent forms of energy,</p>
+    <div class="eq"><span class="boxed">\( \displaystyle U_{\text{thermal}} = N f\,\tfrac12 k_{\mathrm{B}}T \)</span></div>
+    <p>(The proof comes in Section 6.3.) \(U_{\text{thermal}}\) isn’t the total energy, which includes \(mc^2\) for instance, so the theorem applies only to <em>changes</em> in energy. A monatomic gas such as He or Ar has \(f = 3\): its moment of inertia is too small for rotation to count. A diatomic molecule such as \(\mathrm{O_2}\) or \(\mathrm{N_2}\) adds two rotational axes and a vibration with both kinetic and potential energy, for \(f = 7\). A solid’s atoms vibrate in three directions, \(f = 6\).</p>
+    <p>But at room temperature the vibrations don’t contribute, so in effect \(f = 5\), rising to 7 only at higher temperature. Equipartition holds only in the classical regime; the quantum-mechanical explanation comes in Chapter 3. Here is a preview, computed from the quantum rotor and oscillator.</p>
+  </div>
+  <div class="fig">
+    <div>
+      <div class="canvas-holder"><canvas id="molCanvas" aria-label="Diatomic molecules translating, rotating, and vibrating at the chosen temperature"></canvas></div>
+      <div class="canvas-holder" style="margin-top:.75rem"><canvas id="cvCanvas" aria-label="Heat capacity of a diatomic gas versus temperature"></canvas></div>
+      <p class="cap">Heat capacity per mole, the slope of \(U_{\text{thermal}}\) (Section 1.6). Each plateau is \(f/2\) times \(R\).</p>
+    </div>
+    <div class="panel">
+      <div class="ctl">
+        <label for="molSel"><span class="lt">Gas</span></label>
+        <select id="molSel">
+          <option value="h2">Hydrogen, H₂</option>
+          <option value="n2">Nitrogen, N₂</option>
+          <option value="o2">Oxygen, O₂</option>
+        </select>
+      </div>
+      <div class="ctl">
+        <label for="molT"><span class="lt">Temperature</span> <output id="molTOut"></output></label>
+        <input type="range" id="molT" min="1" max="3.9" step="0.005" value="2.477">
+      </div>
+      <dl class="stats">
+        <dt>Translation</dt><dd id="mTr">–</dd>
+        <dt>Rotation</dt><dd id="mRo">–</dd>
+        <dt>Vibration</dt><dd id="mVi">–</dd>
+        <dt class="sep"></dt>
+        <dt>Effective \(f\)</dt><dd id="mF">–</dd>
+      </dl>
+      <p class="cap" style="margin:.75rem 0 0">Each row counts how many of \(\tfrac12 k_{\mathrm{B}}T\) the motion actually holds. Real hydrogen is complicated by its two nuclear-spin forms, ignored here.</p>
+    </div>
+  </div>
+</section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Created by Claude Opus 5.5, based on the lecture notes by Sang Hoon Lee (Statistical Physics 1, Chapter 1, Sections 1.1 to 1.3, with Problems 1.1, 1.7, 1.8, 1.16 and 1.17).</p>
+    <p>Constants: \(k_{\mathrm{B}} = 1.381 \times 10^{-23}\ \mathrm{J/K}\), \(N_A = 6.022 \times 10^{23}\), \(R = 8.314\ \mathrm{J/(mol\,K)}\). Nitrogen virial data as given in the lecture (Problem 1.17). Equations typeset with MathJax.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const $ = id => document.getElementById(id);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let C = {};
+function readColors(){
+  const cs = getComputedStyle(document.documentElement);
+  ['bg','surface','ink','muted','rule','band','hot','cold','gas','acc','amber','res'].forEach(k => C[k] = cs.getPropertyValue('--'+k).trim());
+}
+readColors();
+const SANS = '"Instrument Sans", system-ui, sans-serif';
+const SERIF = '"Newsreader", Georgia, serif';
+function fit(cv, LW, LH){
+  const w = cv.parentElement.clientWidth || LW, hgt = w*LH/LW;
+  cv.style.height = hgt + 'px';
+  const d = window.devicePixelRatio || 1;
+  cv.width = Math.round(w*d); cv.height = Math.round(hgt*d);
+  const ctx = cv.getContext('2d'); const s = w*d/LW;
+  ctx.setTransform(s,0,0,s,0,0);
+  return ctx;
+}
+function rich(c, x, y, size, parts, align){
+  c.save(); c.textAlign = 'left';
+  const fontOf = st => st==='i' ? 'italic '+size+'px '+SERIF : st==='isub' ? 'italic '+(size*0.7)+'px '+SERIF : (st==='sub'||st==='sup') ? (size*0.7)+'px '+SERIF : st==='s' ? (size*0.88)+'px '+SANS : size+'px '+SERIF;
+  const widths = parts.map(([t,st]) => { c.font = fontOf(st); return c.measureText(t).width; });
+  const total = widths.reduce((a,b)=>a+b,0);
+  let cx = align==='center' ? x-total/2 : align==='right' ? x-total : x;
+  parts.forEach(([t,st],i) => { c.font = fontOf(st); const dy = (st==='sub'||st==='isub') ? size*0.25 : st==='sup' ? -size*0.38 : 0; c.fillText(t, cx, y+dy); cx += widths[i]; });
+  c.restore(); return total;
+}
+function signed(x,d){ return (x<0?'−':'') + Math.abs(x).toFixed(d); }
+function sci(x, sig){
+  sig = sig || 2;
+  if (!isFinite(x)) return '–'; if (x === 0) return '0';
+  const e = Math.floor(Math.log10(Math.abs(x)));
+  if (e >= -2 && e < 5) return Number(x.toPrecision(sig)).toLocaleString('en-US',{maximumSignificantDigits:sig});
+  let m = (Math.abs(x)/Math.pow(10,e)).toFixed(sig-1), ee = e; if (parseFloat(m) >= 10){ m = (parseFloat(m)/10).toFixed(sig-1); ee++; }
+  return (x<0?'−':'') + m + ' × 10<sup>' + (ee<0?'−'+(-ee):ee) + '</sup>';
+}
+function axes(c, W, H, box, xr, yr, xt, yt, xlab, ylab, xfmt, yfmt){
+  const [L,T,R,B] = box;
+  c.clearRect(0,0,W,H); c.fillStyle=C.surface; c.fillRect(0,0,W,H);
+  const X = v => L + (v-xr[0])/(xr[1]-xr[0])*(W-L-R), Y = v => H-B - (v-yr[0])/(yr[1]-yr[0])*(H-T-B);
+  c.font='12px '+SANS; c.fillStyle=C.muted; c.textAlign='center';
+  xt.forEach(v => { c.strokeStyle=C.band; c.lineWidth=1; c.beginPath(); c.moveTo(X(v),T); c.lineTo(X(v),H-B); c.stroke(); c.fillText(xfmt ? xfmt(v) : (v<0?'−'+Math.abs(v):String(v)), X(v), H-B+16); });
+  c.textAlign='right'; yt.forEach(v => { c.strokeStyle = v===0 ? C.rule : C.band; c.beginPath(); c.moveTo(L,Y(v)); c.lineTo(W-R,Y(v)); c.stroke(); c.fillText(yfmt ? yfmt(v) : (v<0?'−'+Math.abs(v):String(v)), L-6, Y(v)+4); });
+  c.fillStyle=C.muted; if (xlab) rich(c, W-R-2, H-8, 14, xlab, 'right');
+  if (ylab){ c.save(); c.globalAlpha=0.85; c.fillStyle=C.surface; c.fillRect(L+2, T-2, 170, 20); c.restore(); c.fillStyle=C.muted; rich(c, L+6, T+12, 14, ylab, 'left'); }
+  c.strokeStyle=C.muted; c.lineWidth=1; c.beginPath(); c.moveTo(L,T); c.lineTo(L,H-B); c.lineTo(W-R,H-B); c.stroke();
+  return {X, Y};
+}
+let rs = (Date.now() ^ 0x9e3779b9) >>> 0 || 1;
+const rnd = () => { rs ^= rs << 13; rs >>>= 0; rs ^= rs >>> 17; rs ^= rs << 5; rs >>>= 0; return rs / 4294967296; };
+const gauss = () => { let u=0; while(!u) u=rnd(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rnd()); };
+const kB = 1.380649e-23, NA = 6.02214076e23, R = 8.314462618, amu = 1.66053907e-27, eV = 1.602176634e-19;
+
+/* ================= THERMAL CONTACT ================= */
+const HT_SPEEDS = [0.25, 1, 2, 4, 8];
+const HT = {cols:40, rows:20, a:20, TA:3, TB:0.5, k:0.08, spd:1, run:!reduceMotion, e:null, t:0, hist:[], TA0:3, TB0:0.5};
+function heatInit(){
+  const n = HT.cols*HT.rows; HT.e = new Float64Array(n);
+  for (let r=0;r<HT.rows;r++) for (let c=0;c<HT.cols;c++){ const T = c < HT.a ? HT.TA : HT.TB; HT.e[r*HT.cols+c] = -T*Math.log(1 - rnd()); }
+  // rescale so each block starts at exactly its chosen temperature
+  const [ta, tb] = blockT();
+  for (let r=0;r<HT.rows;r++) for (let c=0;c<HT.cols;c++){ HT.e[r*HT.cols+c] *= c < HT.a ? HT.TA/ta : HT.TB/tb; }
+  HT.t = 0; HT.hist = []; HT.TA0 = HT.TA; HT.TB0 = HT.TB; heatRecord();
+}
+function blockT(){
+  let sa=0, sb=0; const {cols, rows, a} = HT;
+  for (let r=0;r<rows;r++) for (let c=0;c<cols;c++){ const v = HT.e[r*cols+c]; c < a ? sa += v : sb += v; }
+  return [sa/(rows*a), sb/(rows*(cols-a))];
+}
+function heatRecord(){ const [ta, tb] = blockT(); HT.hist.push([HT.t, ta, tb]); if (HT.hist.length > 4000) HT.hist.shift(); }
+function heatSteps(n){
+  const {cols, rows, a} = HT, N = cols*rows;
+  for (let s=0;s<n;s++){
+    const i = (rnd()*N)|0, r = (i/cols)|0, c = i - r*cols;
+    let j; const d = (rnd()*4)|0;
+    if (d===0){ if (c+1>=cols) continue; j = i+1; } else if (d===1){ if (c===0) continue; j = i-1; } else if (d===2){ if (r+1>=rows) continue; j = i+cols; } else { if (r===0) continue; j = i-cols; }
+    const cj = j % cols, across = (c < a) !== (cj < a);
+    if (across && rnd() > HT.k) continue;
+    const tot = HT.e[i] + HT.e[j], u = rnd(); HT.e[i] = u*tot; HT.e[j] = tot - HT.e[i];
+  }
+  HT.t += n/N;  // time in "exchanges per cell"
+}
+function heatColor(v){ // cold blue -> pale -> hot red, by energy relative to 4
+  const x = Math.max(0, Math.min(1, v/4.5));
+  const stops = [[0,[43,103,209]],[0.35,[160,190,235]],[0.55,[245,220,190]],[0.8,[232,120,70]],[1,[196,40,30]]];
+  for (let k=1;k<stops.length;k++) if (x <= stops[k][0]){ const [x0,c0]=stops[k-1], [x1,c1]=stops[k], f=(x-x0)/(x1-x0); return c0.map((v0,m)=>Math.round(v0+(c1[m]-v0)*f)); }
+  return stops[stops.length-1][1];
+}
+const heatOff = document.createElement('canvas');
+function heatDraw(){
+  const c = heatCtx; if (!c) return;
+  const {cols, rows, a} = HT, W=640, H=350;
+  heatOff.width = cols; heatOff.height = rows; const oc = heatOff.getContext('2d'), img = oc.createImageData(cols, rows);
+  // smooth a little for display (3x3 average) so the picture reads as temperature rather than noise
+  for (let r=0;r<rows;r++) for (let cc=0;cc<cols;cc++){
+    let s=0, n=0; for (let dr=-1;dr<=1;dr++) for (let dc=-1;dc<=1;dc++){ const rr=r+dr, c2=cc+dc; if (rr<0||rr>=rows||c2<0||c2>=cols) continue; if ((c2<a)!==(cc<a)) continue; s+=HT.e[rr*cols+c2]; n++; }
+    const col = heatColor(s/n), k = 4*(r*cols+cc); img.data[k]=col[0]; img.data[k+1]=col[1]; img.data[k+2]=col[2]; img.data[k+3]=255;
+  }
+  oc.putImageData(img,0,0);
+  c.clearRect(0,0,W,H); c.fillStyle=C.surface; c.fillRect(0,0,W,H);
+  const gx = 20, gy = 34, gw = W-40, gh = gw*rows/cols;
+  c.imageSmoothingEnabled = false; c.drawImage(heatOff, gx, gy, gw, gh);
+  const bx = gx + gw*a/cols;
+  c.strokeStyle=C.ink; c.lineWidth=3; c.beginPath(); c.moveTo(bx, gy-6); c.lineTo(bx, gy+gh+6); c.stroke();
+  c.fillStyle=C.ink; c.font='600 14px '+SANS; c.textAlign='center';
+  c.fillText('A', gx + (bx-gx)/2, 24); c.fillText('B', bx + (gx+gw-bx)/2, 24);
+}
+function heatInfo(){
+  const [ta, tb] = blockT(), nA = HT.a, nB = HT.cols - HT.a;
+  $('hAOut').textContent = HT.TA.toFixed(2); $('hBOut').textContent = HT.TB.toFixed(2);
+  $('hSizeOut').textContent = Math.round(nA/HT.cols*100) + '% of the cells';
+  $('hKOut').textContent = HT.k.toFixed(2);
+  $('hSpdOut').textContent = HT_SPEEDS[HT.spd] + '×';
+  $('hTA').textContent = ta.toFixed(3); $('hTB').textContent = tb.toFixed(3);
+  $('hTf').textContent = ((nA*HT.TA0 + nB*HT.TB0)/(nA+nB)).toFixed(3);
+  const tau = fitTau(); $('hTau').textContent = tau ? Math.round(tau).toLocaleString('en-US') : 'collecting data…';
+  $('hPlay').textContent = HT.run ? 'Pause' : 'Play';
+}
+function fitTau(){ // least squares of ln|TA-TB| vs t while the difference is well above the noise
+  const pts = HT.hist.filter(h => Math.abs(h[1]-h[2]) > 0.15*Math.abs(HT.TA0-HT.TB0) && Math.abs(h[1]-h[2]) > 0.05);
+  if (pts.length < 8) return null;
+  let sx=0, sy=0, sxx=0, sxy=0; pts.forEach(([t,a,b]) => { const y=Math.log(Math.abs(a-b)); sx+=t; sy+=y; sxx+=t*t; sxy+=t*y; });
+  const n = pts.length, slope = (n*sxy - sx*sy)/(n*sxx - sx*sx);
+  return slope < 0 ? -1/slope : null;
+}
+function tDraw(){
+  const c = tCtx; if (!c) return;
+  const W=640, H=240, tmax = Math.max(200, HT.t*1.05), ymax = Math.max(HT.TA0, HT.TB0)*1.15;
+  const step = tmax > 4000 ? 1000 : tmax > 2000 ? 500 : tmax > 800 ? 200 : 100; const xt = []; for (let v=0; v<=tmax; v+=step) xt.push(v);
+  const ax = axes(c, W, H, [44,16,14,40], [0, tmax], [0, ymax], xt, [0,1,2,3,4].filter(v => v <= ymax), [['time (exchanges per cell)','s']], [['T','i']]);
+  const Tf = (HT.a*HT.TA0 + (HT.cols-HT.a)*HT.TB0)/HT.cols;
+  c.strokeStyle=C.res; c.setLineDash([3,4]); c.beginPath(); c.moveTo(ax.X(0),ax.Y(Tf)); c.lineTo(ax.X(tmax),ax.Y(Tf)); c.stroke(); c.setLineDash([]);
+  const tau = fitTau();
+  if (tau){
+    const nA = HT.a, nB = HT.cols - HT.a, d0 = HT.TA0 - HT.TB0;
+    c.strokeStyle=C.ink; c.lineWidth=1.6; c.setLineDash([6,4]);
+    [[nB/(nA+nB), 1],[ -nA/(nA+nB), 1]].forEach(([w]) => { c.beginPath(); for (let i=0;i<=200;i++){ const t=tmax*i/200; const y=ax.Y(Tf + w*d0*Math.exp(-t/tau)); i?c.lineTo(ax.X(t),y):c.moveTo(ax.X(t),y); } c.stroke(); });
+    c.setLineDash([]);
+  }
+  [[1,C.hot],[2,C.cold]].forEach(([k,col]) => { c.strokeStyle=col; c.lineWidth=2.4; c.beginPath(); HT.hist.forEach((h,i) => { const x=ax.X(h[0]), y=ax.Y(h[k]); i?c.lineTo(x,y):c.moveTo(x,y); }); c.stroke(); });
+}
+['hA','hB','hSize','hK'].forEach(id => $(id).addEventListener('input', e => {
+  const v = +e.target.value; if (id==='hA') HT.TA = v; if (id==='hB') HT.TB = v; if (id==='hSize') HT.a = v; if (id==='hK') HT.k = v;
+  if (id !== 'hK') heatInit(); heatDraw(); tDraw(); heatInfo();
+}));
+$('hPlay').addEventListener('click', () => { HT.run = !HT.run; heatInfo(); });
+$('hSpd').addEventListener('input', e => { HT.spd = +e.target.value; heatInfo(); });
+$('hReset').addEventListener('click', () => { heatInit(); heatDraw(); tDraw(); heatInfo(); });
+
+/* ================= GAS THERMOMETER ================= */
+let gtT = 20, gtExt = true;
+const GT_SAMPLES = [ {k:1.6/373.15, col:'hot', name:'Sample 1'}, {k:1.1/373.15, col:'amber', name:'Sample 2'}, {k:0.6/373.15, col:'cold', name:'Sample 3'} ];
+function gtRender(){
+  $('gtTOut').innerHTML = gtT + ' °C = ' + (gtT + 273.15).toFixed(2) + ' K';
+  $('gtExt').setAttribute('aria-pressed', String(gtExt)); $('gtExt').textContent = gtExt ? 'Shown' : 'Hidden';
+  $('gtStats').innerHTML = GT_SAMPLES.map(s => '<dt>' + s.name + '</dt><dd>' + (s.k*(gtT+273.15)).toFixed(3) + ' atm</dd>').join('');
+  const c = gtCtx; if (!c) return;
+  const W=640, H=340, ax = axes(c, W, H, [48,16,14,40], [-300,110], [0,1.7], [-300,-200,-100,0,100], [0,0.4,0.8,1.2,1.6], [['temperature (°C)','s']], [['pressure (atm)','s']]);
+  GT_SAMPLES.forEach(s => {
+    const col = C[s.col];
+    // measured range: 0 to 100 C as data points; extrapolation dashed
+    c.fillStyle = col; for (let t=-60; t<=100; t+=20){ c.beginPath(); c.arc(ax.X(t), ax.Y(s.k*(t+273.15)), 4, 0, 7); c.fill(); }
+    c.strokeStyle = col; c.lineWidth = 2;
+    c.beginPath(); c.moveTo(ax.X(-60), ax.Y(s.k*213.15)); c.lineTo(ax.X(105), ax.Y(s.k*378.15)); c.stroke();
+    if (gtExt){ c.setLineDash([6,5]); c.lineWidth=1.4; c.beginPath(); c.moveTo(ax.X(-273.15), ax.Y(0)); c.lineTo(ax.X(-60), ax.Y(s.k*213.15)); c.stroke(); c.setLineDash([]); }
+    c.fillStyle = col; c.beginPath(); c.arc(ax.X(gtT), ax.Y(s.k*(gtT+273.15)), 6, 0, 7); c.fill();
+  });
+  if (gtExt){ c.strokeStyle=C.ink; c.lineWidth=2; c.beginPath(); c.arc(ax.X(-273.15), ax.Y(0), 9, 0, 7); c.stroke();
+    c.save(); c.globalAlpha=0.9; c.fillStyle=C.surface; c.fillRect(ax.X(-273.15)+10, ax.Y(0.3)-14, 116, 19); c.restore(); c.fillStyle=C.ink; c.font='13px '+SANS; c.textAlign='left'; c.fillText('−273.15 °C = 0 K', ax.X(-273.15)+14, ax.Y(0.3)); }
+  c.strokeStyle=C.muted; c.globalAlpha=.5; c.beginPath(); c.moveTo(ax.X(gtT),16); c.lineTo(ax.X(gtT),H-40); c.stroke(); c.globalAlpha=1;
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='left'; c.fillText('measured', ax.X(-55), ax.Y(1.62));
+}
+$('gtT').addEventListener('input', e => { gtT = +e.target.value; gtRender(); });
+$('gtExt').addEventListener('click', () => { gtExt = !gtExt; gtRender(); });
+
+/* ---------- converter ---------- */
+function setConv(from){
+  const vC = +$('cvC').value, vK = +$('cvK').value, vF = +$('cvF').value;
+  let c;
+  if (from==='C') c = vC; else if (from==='K') c = vK - 273.15; else c = (vF - 32)*5/9;
+  if (!isFinite(c)) return;
+  const fmt = v => String(Math.round(v*100)/100);
+  if (from!=='C') $('cvC').value = fmt(c);
+  if (from!=='K') $('cvK').value = fmt(c + 273.15);
+  if (from!=='F') $('cvF').value = fmt(c*9/5 + 32);
+  $('cvNote').textContent = c < -273.15 - 1e-9 ? 'Below absolute zero: no such temperature exists.' : (Math.abs(c - 36.5) < 0.6 ? 'About normal human body temperature.' : Math.abs(c) < 0.01 ? 'Ice melts.' : Math.abs(c-100) < 0.01 ? 'Water boils (at 1 atm).' : Math.abs(c+273.15) < 0.01 ? 'Absolute zero.' : '');
+}
+$('cvC').addEventListener('input', () => setConv('C')); $('cvK').addEventListener('input', () => setConv('K')); $('cvF').addEventListener('input', () => setConv('F'));
+
+/* ---------- thermal expansion ---------- */
+let exDT = 50;
+function exRender(){
+  const a = 1.1e-5, dL = a*1000*exDT, dVexact = Math.pow(1 + a*exDT, 3) - 1, dV3 = 3*a*exDT;
+  $('exDTOut').textContent = exDT + ' K';
+  $('exL').textContent = (dL*100).toFixed(1) + ' cm';
+  $('exV').innerHTML = sci(dVexact, 6); $('exV3').innerHTML = sci(dV3, 6);
+  const c = exCtx; if (!c) return;
+  const W=640, H=220; c.clearRect(0,0,W,H); c.fillStyle=C.surface; c.fillRect(0,0,W,H);
+  const x0 = 60, base = 440, stretch = base*(1 + dL/1000*400); // exaggerated by 400x
+  // piers
+  c.fillStyle=C.band; c.fillRect(x0-30, 120, 30, 80); c.fillRect(x0+base, 120, 70, 80);
+  // cold bridge outline
+  c.strokeStyle=C.cold; c.setLineDash([5,4]); c.lineWidth=1.5; c.strokeRect(x0, 92, base, 26); c.setLineDash([]);
+  // warm bridge
+  c.fillStyle=C.hot; c.globalAlpha=0.25; c.fillRect(x0, 92, stretch, 26); c.globalAlpha=1;
+  c.strokeStyle=C.hot; c.lineWidth=2; c.strokeRect(x0, 92, stretch, 26);
+  c.fillStyle=C.ink; c.font='13px '+SANS; c.textAlign='left';
+  c.fillText('cold (dashed)', x0, 80); c.textAlign='right'; c.fillText('ΔL = ' + (dL*100).toFixed(1) + ' cm, shown 400× larger', x0+stretch, 140);
+  c.fillStyle=C.muted; c.textAlign='left'; c.fillText('Real bridges leave expansion joints to absorb this.', x0, 190);
+}
+$('exDT').addEventListener('input', e => { exDT = +e.target.value; exRender(); });
+
+/* ================= ATMOSPHERE ================= */
+let atT = 280;
+const PLACES = [['Sea level',0],['Ogden, Utah',1430],['Leadville, Colorado',3090],['Mt. Whitney, California',4420],['Mt. Everest',8850]];
+function atRender(){
+  const m = 28.97*amu, g = 9.81, H0 = kB*atT/(m*g);
+  $('atTOut').textContent = atT + ' K';
+  $('atStats').innerHTML = '<dt>Scale height \\(k_{\\mathrm{B}}T/mg\\)</dt><dd>' + (H0/1000).toFixed(1) + ' km</dd><dt class="sep"></dt>' + PLACES.map(([n,z]) => '<dt>' + n + '</dt><dd>' + Math.exp(-z/H0).toFixed(2) + ' atm</dd>').join('');
+  if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([$('atStats')]).catch(()=>{});
+  const c = atCtx; if (!c) return;
+  const W=640, H=360, ax = axes(c, W, H, [48,16,14,40], [0,1.05], [0,12], [0,0.25,0.5,0.75,1], [0,2,4,6,8,10,12], [['pressure (atm)','s']], [['altitude (km)','s']]);
+  c.fillStyle=C.cold; c.globalAlpha=0.12; c.beginPath(); c.moveTo(ax.X(0),ax.Y(0)); for (let i=0;i<=200;i++){ const z=12*i/200; c.lineTo(ax.X(Math.exp(-z*1000/H0)), ax.Y(z)); } c.lineTo(ax.X(0),ax.Y(12)); c.closePath(); c.fill(); c.globalAlpha=1;
+  c.strokeStyle=C.cold; c.lineWidth=2.6; c.beginPath(); for (let i=0;i<=200;i++){ const z=12*i/200; const x=ax.X(Math.exp(-z*1000/H0)), y=ax.Y(z); i?c.lineTo(x,y):c.moveTo(x,y); } c.stroke();
+  PLACES.forEach(([n,z],i) => { const p = Math.exp(-z/H0); c.fillStyle=C.hot; c.beginPath(); c.arc(ax.X(p), ax.Y(z/1000), 5, 0, 7); c.fill(); c.fillStyle=C.ink; c.font='12px '+SANS; c.textAlign = i===0 ? 'right' : 'left'; c.fillText(n, ax.X(p) + (i===0 ? -9 : 9), ax.Y(z/1000) + (i===0 ? -8 : 4)); });
+}
+$('atT').addEventListener('input', e => { atT = +e.target.value; atRender(); });
+
+/* ================= VIRIAL ================= */
+const VDATA = [[100,-160],[200,-35],[300,-4.2],[400,9.0],[500,16.9],[600,21.3]];
+let vA = 0.1, vB = 30;
+const Bfit = (T) => vB - vA/(R*T)*1e6; // cm^3/mol
+function virRender(){
+  $('vAOut').innerHTML = vA.toFixed(3) + ' J m<sup>3</sup>/mol<sup>2</sup>'; $('vBOut').innerHTML = vB.toFixed(1) + ' cm<sup>3</sup>/mol';
+  const rms = Math.sqrt(VDATA.reduce((s,[T,B]) => s + Math.pow(Bfit(T)-B,2), 0)/VDATA.length);
+  $('vRms').innerHTML = rms.toFixed(1) + ' cm<sup>3</sup>/mol';
+  const c = virCtx; if (!c) return;
+  const W=640, H=340, ax = axes(c, W, H, [52,16,14,40], [80,620], [-180,50], [100,200,300,400,500,600], [-160,-120,-80,-40,0,40], [['T','i'],['  (K)','s']], [['B','i'],['(','r'],['T','i'],[')  (cm³/mol)','s']]);
+  c.save(); c.beginPath(); c.rect(52,16,W-66,H-56); c.clip();
+  c.strokeStyle=C.acc; c.lineWidth=2.6; c.beginPath(); for (let i=0;i<=200;i++){ const T=80+540*i/200; const y=ax.Y(Bfit(T)); i?c.lineTo(ax.X(T),y):c.moveTo(ax.X(T),y); } c.stroke();
+  c.restore();
+  VDATA.forEach(([T,B]) => { c.strokeStyle=C.hot; c.lineWidth=2; c.beginPath(); c.arc(ax.X(T), ax.Y(B), 6, 0, 7); c.stroke(); });
+}
+$('vA').addEventListener('input', e => { vA = +e.target.value; virRender(); });
+$('vB').addEventListener('input', e => { vB = +e.target.value; virRender(); });
+$('vFit').addEventListener('click', () => { vA = 0.182319; vB = 64.2001; $('vA').value = vA; $('vB').value = vB; virRender(); });
+
+/* ================= GAS SIMULATION ================= */
+const GS = {N:200, T:1, L:1, run:!reduceMotion, p:[], imp:0, time:0, flash:[]};
+function gsInit(){
+  GS.p = []; for (let i=0;i<GS.N;i++){ const s = Math.sqrt(GS.T); GS.p.push({x:rnd()*GS.L, y:rnd(), z:rnd(), vx:gauss()*s, vy:gauss()*s, vz:gauss()*s, f:0}); }
+  // These molecules never collide with each other, so nothing would ever even out a sample whose
+  // average v_x^2 happened to differ from k_B T/m. Scale each component so the sample is exactly at T.
+  ['vx','vy','vz'].forEach(k => { let s2 = 0; GS.p.forEach(q => s2 += q[k]*q[k]); const f = Math.sqrt(GS.N*GS.T/s2); GS.p.forEach(q => q[k] *= f); });
+  GS.imp = 0; GS.time = 0;
+}
+function gsRescaleT(Tnew){ const f = Math.sqrt(Tnew/GS.T); GS.p.forEach(q => { q.vx*=f; q.vy*=f; q.vz*=f; }); GS.T = Tnew; GS.imp = 0; GS.time = 0; }
+function gsStep(dt){
+  const L = GS.L;
+  for (const q of GS.p){
+    q.x += q.vx*dt; q.y += q.vy*dt; q.z += q.vz*dt;
+    if (q.x > L){ GS.imp += 2*Math.abs(q.vx); q.x = 2*L - q.x; q.vx = -q.vx; q.f = 1; }
+    if (q.x < 0){ q.x = -q.x; q.vx = -q.vx; }
+    if (q.y < 0){ q.y = -q.y; q.vy = -q.vy; } else if (q.y > 1){ q.y = 2 - q.y; q.vy = -q.vy; }
+    if (q.z < 0){ q.z = -q.z; q.vz = -q.vz; } else if (q.z > 1){ q.z = 2 - q.z; q.vz = -q.vz; }
+    if (q.f > 0) q.f = Math.max(0, q.f - dt*4);
+  }
+  GS.time += dt;
+}
+function gsInfo(){
+  $('gNOut').textContent = GS.N; $('gTOut').textContent = GS.T.toFixed(2);
+  // box is L long in x and 1 x 1 in y,z (area 1): V = L
+  const V = GS.L, Pi = GS.N*GS.T/V, P = GS.time > 0 ? GS.imp/(GS.time*1) : NaN;
+  $('gLOut').innerHTML = GS.L.toFixed(2);
+  $('gP').textContent = isFinite(P) ? P.toFixed(1) : '–'; $('gPi').textContent = Pi.toFixed(1);
+  $('gR').textContent = isFinite(P) && GS.time > 2 ? (P/Pi).toFixed(3) + (GS.time < 15 ? ' (still noisy)' : '') : 'measuring…';
+  let K = 0; GS.p.forEach(q => K += 0.5*(q.vx*q.vx+q.vy*q.vy+q.vz*q.vz)); K /= GS.N;
+  $('gK').textContent = (K/(1.5*GS.T)).toFixed(3);
+  $('gPlay').textContent = GS.run ? 'Pause' : 'Play';
+}
+function gsDraw(){
+  const c = gsCtx; if (!c) return;
+  const W=640, H=360; c.clearRect(0,0,W,H); c.fillStyle=C.surface; c.fillRect(0,0,W,H);
+  const S = 300, x0 = 40, y0 = 30, bw = S*GS.L;
+  c.fillStyle=C.band; c.fillRect(x0, y0, bw, S);
+  c.strokeStyle=C.ink; c.lineWidth=2; c.beginPath(); c.moveTo(x0+bw, y0); c.lineTo(x0, y0); c.lineTo(x0, y0+S); c.lineTo(x0+bw, y0+S); c.stroke();
+  // piston
+  c.fillStyle=C.ink; c.fillRect(x0+bw, y0-6, 8, S+12); c.fillRect(x0+bw+8, y0+S/2-5, 60, 10);
+  for (const q of GS.p){ c.fillStyle = q.f > 0 ? C.hot : C.gas; c.globalAlpha = 0.45 + 0.55*q.z; c.beginPath(); c.arc(x0 + q.x*S, y0 + (1-q.y)*S, q.f > 0 ? 4.5 : 3, 0, 7); c.fill(); }
+  c.globalAlpha=1;
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='left'; c.fillText('piston', x0+bw+14, y0+S/2-12);
+}
+$('gN').addEventListener('input', e => { GS.N = +e.target.value; gsInit(); gsInfo(); gsDraw(); });
+$('gT').addEventListener('input', e => { gsRescaleT(+e.target.value); gsInfo(); });
+$('gL').addEventListener('input', e => { GS.L = +e.target.value; GS.p.forEach(q => { if (q.x > GS.L) q.x = rnd()*GS.L; }); GS.imp = 0; GS.time = 0; gsInfo(); gsDraw(); });
+$('gPlay').addEventListener('click', () => { GS.run = !GS.run; gsInfo(); });
+$('gReset').addEventListener('click', () => { GS.imp = 0; GS.time = 0; gsInfo(); });
+
+/* ================= RMS SPEEDS ================= */
+const GASES = [['H₂',2.016],['He',4.003],['H₂O',18.015],['N₂',28.014],['O₂',31.998],['CO₂',44.01],['Xe',131.29]];
+let vrT = 300;
+function vrRender(){
+  $('vrTOut').textContent = vrT + ' K';
+  $('vrkT').innerHTML = (kB*vrT/eV*1000).toFixed(1) + ' meV ≈ 1/' + Math.round(eV/(kB*vrT)) + ' eV';
+  $('vrK').innerHTML = sci(1.5*kB*vrT, 3) + ' J';
+  const c = vrCtx; if (!c) return;
+  const W=640, H=300, L=70, Rm=70, T=16, B=40, vmax = 3000;
+  c.clearRect(0,0,W,H); c.fillStyle=C.surface; c.fillRect(0,0,W,H);
+  const X = v => L + v/vmax*(W-L-Rm), bh = (H-T-B)/GASES.length;
+  c.font='12px '+SANS; c.fillStyle=C.muted; c.textAlign='center';
+  [0,500,1000,1500,2000,2500,3000].forEach(v => { c.strokeStyle=C.band; c.beginPath(); c.moveTo(X(v),T); c.lineTo(X(v),H-B); c.stroke(); c.fillText(v.toLocaleString('en-US'), X(v), H-B+16); });
+  c.textAlign='right'; c.fillText('v_rms (m/s)', W-Rm+60, H-8);
+  GASES.forEach(([n,M],i) => {
+    const v = Math.sqrt(3*kB*vrT/(M*amu)), y = T + i*bh + bh*0.18;
+    c.fillStyle=C.cold; c.fillRect(L, y, Math.min(X(v),W-Rm+50)-L, bh*0.64);
+    c.fillStyle=C.ink; c.font='13px '+SANS; c.textAlign='right'; c.fillText(n, L-8, y+bh*0.45);
+    c.textAlign='left'; c.fillText(Math.round(v).toLocaleString('en-US') + ' m/s', Math.min(X(v),W-Rm+50)+6, y+bh*0.45);
+  });
+}
+$('vrT').addEventListener('input', e => { vrT = +e.target.value; vrRender(); });
+
+/* ================= EQUIPARTITION: DIATOMIC ================= */
+const MOLS = {h2:{name:'H₂', tr:85.3, tv:6332}, n2:{name:'N₂', tr:2.88, tv:3374}, o2:{name:'O₂', tr:2.08, tv:2256}};
+let molKey = 'h2', molT = 300;
+function cRot(T, tr){ // rigid-rotor heat capacity / R, from energy fluctuations
+  const lmax = Math.ceil(Math.sqrt(40*T/tr)) + 10; let Z=0, e1=0, e2=0;
+  for (let l=0;l<=lmax;l++){ const E = l*(l+1)*tr, w = (2*l+1)*Math.exp(-E/T); Z+=w; e1+=w*E; e2+=w*E*E; }
+  e1/=Z; e2/=Z; return (e2 - e1*e1)/(T*T);
+}
+function cVib(T, tv){ const x = tv/T; if (x > 600) return 0; const e = Math.exp(-x); return x*x*e/((1-e)*(1-e)); }
+function molRender(){
+  const m = MOLS[molKey], T = molT, cr = cRot(T, m.tr), cv = cVib(T, m.tv);
+  $('molTOut').textContent = (T >= 100 ? Math.round(T).toLocaleString('en-US') : T.toFixed(1)) + ' K';
+  $('mTr').textContent = '3 of 3'; $('mRo').textContent = (2*cr).toFixed(2) + ' of 2'; $('mVi').textContent = (2*cv).toFixed(2) + ' of 2';
+  $('mF').textContent = (3 + 2*cr + 2*cv).toFixed(2);
+  const c = cvCtx; if (!c) return;
+  const W=640, H=300, lo=1, hi=Math.log10(8000);
+  const ax = axes(c, W, H, [48,16,14,40], [lo,hi], [1.3,3.7], [1,2,3], [1.5,2.5,3.5], [['T','i'],['  (K, log scale)','s']], [['C','i'],['V','isub'],[' / ','r'],['R','i']], v => ['','10','100','1000'][v], v => v===1.5?'3/2':v===2.5?'5/2':'7/2');
+  [[1.5,'translation'],[2.5,'+ rotation'],[3.5,'+ vibration']].forEach(([v,lab]) => { c.strokeStyle=C.res; c.setLineDash([3,4]); c.beginPath(); c.moveTo(ax.X(lo),ax.Y(v)); c.lineTo(ax.X(hi),ax.Y(v)); c.stroke(); c.setLineDash([]); c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='right'; c.fillText(lab, ax.X(hi)-4, ax.Y(v)-5); });
+  c.strokeStyle=C.acc; c.lineWidth=2.8; c.beginPath();
+  for (let i=0;i<=400;i++){ const lt = lo+(hi-lo)*i/400, t = Math.pow(10,lt); const y = ax.Y(1.5 + cRot(t, m.tr) + cVib(t, m.tv)); i?c.lineTo(ax.X(lt),y):c.moveTo(ax.X(lt),y); }
+  c.stroke();
+  c.fillStyle=C.acc; c.beginPath(); c.arc(ax.X(Math.log10(T)), ax.Y(1.5+cr+cv), 6, 0, 7); c.fill();
+  c.strokeStyle=C.muted; c.globalAlpha=.4; c.beginPath(); c.moveTo(ax.X(Math.log10(300)),16); c.lineTo(ax.X(Math.log10(300)),H-40); c.stroke(); c.globalAlpha=1;
+  c.fillStyle=C.muted; c.font='11px '+SANS; c.textAlign='left'; c.fillText('room temperature', ax.X(Math.log10(300))+4, H-46);
+}
+const MOLV = []; for (let i=0;i<9;i++) MOLV.push({x:rnd(), y:rnd(), vx:gauss(), vy:gauss(), a:rnd()*6.28, w:(rnd()<0.5?-1:1)*(0.7+rnd()*0.6), ph:rnd()*6.28});
+function molDraw(dt){
+  const c = molCtx; if (!c) return;
+  const m = MOLS[molKey], ar = Math.min(1, cRot(molT, m.tr)), av = Math.min(1, cVib(molT, m.tv)), vs = Math.sqrt(molT/300);
+  const W=640, H=220; c.clearRect(0,0,W,H); c.fillStyle=C.surface; c.fillRect(0,0,W,H);
+  MOLV.forEach(q => {
+    q.x += q.vx*dt*0.05*vs; q.y += q.vy*dt*0.05*vs; if (q.x<0.05||q.x>0.95) q.vx*=-1; if (q.y<0.08||q.y>0.92) q.vy*=-1;
+    q.x=Math.min(0.95,Math.max(0.05,q.x)); q.y=Math.min(0.92,Math.max(0.08,q.y));
+    q.a += q.w*dt*3*ar*Math.sqrt(vs); q.ph += dt*14;
+    const cx = q.x*W, cy = q.y*H, d = 11 + av*4*Math.sin(q.ph), dx = Math.cos(q.a)*d, dy = Math.sin(q.a)*d;
+    c.strokeStyle=C.muted; c.lineWidth=2; c.beginPath(); c.moveTo(cx-dx,cy-dy); c.lineTo(cx+dx,cy+dy); c.stroke();
+    c.fillStyle=C.cold; [[1],[-1]].forEach(([s]) => { c.beginPath(); c.arc(cx+s*dx, cy+s*dy, 7, 0, 7); c.fill(); });
+  });
+  c.fillStyle=C.muted; c.font='12px '+SANS; c.textAlign='left';
+  c.fillText('Rotation ' + (ar < 0.05 ? 'frozen out' : ar > 0.95 ? 'fully active' : 'switching on') + ', vibration ' + (av < 0.05 ? 'frozen out' : av > 0.95 ? 'fully active' : 'switching on'), 12, H-10);
+}
+$('molSel').addEventListener('change', e => { molKey = e.target.value; molRender(); molDraw(0); });
+$('molT').addEventListener('input', e => { molT = Math.pow(10, +e.target.value); molRender(); molDraw(0); });
+
+/* ================= LAYOUT + LOOP ================= */
+let heatCtx, tCtx, gtCtx, exCtx, atCtx, virCtx, gsCtx, vrCtx, cvCtx, molCtx;
+function layout(){
+  heatCtx = fit($('heatCanvas'), 640, 350); tCtx = fit($('tCanvas'), 640, 240);
+  gtCtx = fit($('gasThCanvas'), 640, 340); exCtx = fit($('expCanvas'), 640, 220);
+  atCtx = fit($('atmCanvas'), 640, 360); virCtx = fit($('virCanvas'), 640, 340);
+  gsCtx = fit($('gasCanvas'), 640, 360); vrCtx = fit($('vrCanvas'), 640, 300);
+  molCtx = fit($('molCanvas'), 640, 220); cvCtx = fit($('cvCanvas'), 640, 300);
+  redrawAll();
+}
+function redrawAll(){ heatDraw(); tDraw(); heatInfo(); gtRender(); exRender(); atRender(); virRender(); gsDraw(); gsInfo(); vrRender(); molRender(); molDraw(0); }
+let rt; window.addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(layout, 80); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); redrawAll(); });
+const vis = {heat:true, gas:true, mol:true};
+const io = new IntersectionObserver(es => es.forEach(e => { vis[e.target.dataset.key] = e.isIntersecting; }));
+[['heatCanvas','heat'],['tCanvas','heat'],['gasCanvas','gas'],['molCanvas','mol']].forEach(([id,k]) => { $(id).dataset.key = k; io.observe($(id)); });
+let last = performance.now(), infoT = 0, recT = 0, molRun = !reduceMotion;
+function loop(now){
+  const dt = Math.min(0.05, (now-last)/1000); last = now; infoT += dt;
+  if (HT.run && vis.heat && heatCtx){ heatSteps(Math.round(500*HT_SPEEDS[HT.spd])); heatRecord(); heatDraw(); }
+  if (GS.run && vis.gas && gsCtx){ for (let k=0;k<4;k++) gsStep(dt/4*1.2); gsDraw(); }
+  if (molRun && vis.mol && molCtx) molDraw(dt);
+  if (infoT > 0.25){ infoT = 0; if (vis.heat){ tDraw(); heatInfo(); } if (vis.gas) gsInfo(); }
+  requestAnimationFrame(loop);
+}
+heatInit(); gsInit(); setConv('C');
+$('molT').value = Math.log10(molT).toFixed(3);
+layout();
+requestAnimationFrame(loop);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
+</script>
+</body>
+</html>
